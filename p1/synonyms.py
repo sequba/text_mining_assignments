@@ -19,10 +19,12 @@ def highlight(string):
     #return string
     return bold+g+' '+string+' '+w
 
-comment_regex = re.compile('! --((?!--).)*--')
+comment_regex = re.compile('! --((?!--).)*-- ')
 open_comment_regex = re.compile('! --((?!--).)*$')
-category_regex = re.compile('= = =((?!= = =).)*= = =')
+category_regex = re.compile('= = =((?!= = =).)*= = = ')
 open_category_regex = re.compile('= = =((?!= = =).)*$')
+subcategory_regex = re.compile('= =((?!= =).)*= = ')
+open_subcategory_regex = re.compile('= =((?!= =).)*$')
 
 def remove_occurences(regex_object, string):
     m = regex_object.search(string)
@@ -31,17 +33,18 @@ def remove_occurences(regex_object, string):
         m = regex_object.search(string)
     return string
 
+unicode_dashes = {173, 1418, 1470, 8208, 8209, 8210, 8211, 8212, 8213, 8722, 65123, 65293}
+translation_table = dict.fromkeys(unicode_dashes, '-')
 
 def prepare(line):
-    unicode_dashes = {173, 1418, 1470, 8208, 8209, 8210, 8211, 8212, 8213, 8722, 65123, 65293}
-    translation_table = dict.fromkeys(unicode_dashes, '-')
-
     line = line.strip()
     line = line.translate(translation_table).replace('& amp ; ndash ;', '-')
     line = remove_occurences(comment_regex, line)
     line = remove_occurences(open_comment_regex, line)
     line = remove_occurences(category_regex, line)
     line = remove_occurences(open_category_regex, line)
+    line = remove_occurences(subcategory_regex, line)
+    line = remove_occurences(open_subcategory_regex, line)
 
     return line
 
@@ -61,19 +64,41 @@ def suitable(string):
         return False
     return True
     
-definition_pattern = '^((?!{0}).)*({0}).*$'
-defining_words = [ ' - ', ' jest ', ' to ' ]
-regexes = [re.compile(definition_pattern.format(w)) for w in defining_words]
+# definition_pattern = '^((?!{0}).)*({0}).*$'
+# defining word outside parathesis (sort of)
+# TODO: whats wrong with nested stars?
+# definition_pattern = '^'+'('+'((?!{0})[^\(])*'+'(\([^\)]*\))*'+')*'+'(?P<word>{0})'
 
-def before_definition(string):
+def_pattern = '^'+'('+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+')'+'(?P<word>{0})'
+def_words = [ ' - ', ' jest ', ' to ' ]
+def_regexes = [re.compile(def_pattern.format(w)) for w in def_words]
+
+def split_definition(string):
     string = ' ' + string
-    matches = [ m.span(2) for pattern in regexes for m in [pattern.match(string)] if m ]
+    matches = [ m.span('word') for pattern in def_regexes for m in [pattern.search(string)] if m ]
     if matches:
         (start, end) = min(matches)
-        print(string[:start] + highlight(string[start:end]) + string[end:end+50])
-        return string[:start]
+        #print(string[:start] + highlight(string[start:end]) + string[end:end+50])
+        return (string[:start].strip(), string[end:].strip())
     else:
-        return None
+        return ('', string)
+
+#syn_pattern = "{0}( *(\S*|''+[\w\s]*''+),)*"
+#syn_pattern = "{0} *((''+((?'').)*''+)|(\S*))"
+syn_pattern = "{0} *((''+[^']*''+)|(\S*))"
+syn_words = [ ' lub ', ' albo ', ' inaczej ', ' właściwie ', '=' ]
+# nawiasy
+syn_regexes = [re.compile(syn_pattern.format(w)) for w in syn_words]
+
+def extract_synonyms(head, body):
+    string = head
+    matches = [m.group(0) for r in syn_regexes for m in r.finditer(string)]
+    for m in matches:
+        m = matches[0] 
+        string = string.replace(m, highlight(m))
+    if matches:
+        print('$$$ ', string)
+    return matches
 
 matched = 0
 unmatched = 0
@@ -88,12 +113,14 @@ for line in stdin:
         rejected += 1
         continue
     
-    term = before_definition(line)
-    if not term: # bad structure
+    (head, body) = split_definition(line)
+    if head:
+        matched += 1
+    else:
         unmatched += 1
-        continue
+  
+    synonyms = extract_synonyms(head, body)
 
-    matched += 1
     # proper definition (presumably)
     # print('{0} ### {1}'.format(title, term))
 
