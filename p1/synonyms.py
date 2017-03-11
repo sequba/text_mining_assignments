@@ -83,18 +83,19 @@ def split_definition(string):
     else:
         return ('', string)
 
-#syn_pattern = "{0}( *(\S*|''+[\w\s]*''+),)*"
-#syn_pattern = "{0} *((''+((?'').)*''+)|(\S*))"
-syn_pattern = "{0} *((''+[^']*''+)|(\S*))"
-syn_words = [ ' lub ', ' albo ', ' inaczej ', ' właściwie ', '=' ]
-# nawiasy
-syn_regexes = [re.compile(syn_pattern.format(w)) for w in syn_words]
+#syn_pattern = "{0}"+" *"+"("+"({1}) *"+")*"+"(?P<word>'''*[^']*'''*)" #+"("+" *, *"+"(''+[^']*''+)"+")*"
+syn_pattern = "{0}"+" *"+"("+"({1}) *"+")*"+"(?P<word>"+"'''*[^']*'''*" + "("+" *, *"+"'''*[^']*'''*"+")*"+")"
+common_words = [ 'też', 'inaczej', 'właściwie', 'właść .', 'właśc .', 'oryginalnie', 'w oryginale', 'dawniej', 'dokładnie', 'dokładniej', 'zwyczajowo', 'zwycz .', 'potocznie', 'pot .', 'potocz .', 'syn.', 'synonimicznie', 'także', 'również', 'krótko', 'krócej', 'w skrócie', 'prościej', 'zwyczajnie', 'rzadziej', 'czasem', 'czasami', 'precyzyjnie', 'precyzyjniej', 'zwany', 'zwana', 'zwane', 'zwani', 'nazywany', 'nazywana', 'nazywane', 'nazywani', 'znany', 'znana', 'znane', 'tzw .', 'często', 'częściej', 'określany', 'określana', 'określane', 'określani']
+intro_words = [ ' lub ', ' albo ', ' skrót ', ' synonim ', ' synonimy ', ' czyli ', '^', '\( '] + [ ' '+w+' ' for w in common_words ]
+ign_words = [ 'jako ', 'nazwą ', 'pod nazwą ', 'mianem ', 'terminem ', 'określeniem ', 'pod określeniem ', ': ', '- ', 'po prostu ' ] + [ w+' ' for w in common_words ]
+ign_alternative = '|'.join(ign_words)
+syn_regexes = [ re.compile(syn_pattern.format(w, ign_alternative)) for w in intro_words ]
 
 def extract_synonyms(head, body):
     string = head
-    matches = [m.group(0) for r in syn_regexes for m in r.finditer(string)]
+    matches = [ m.group('word') for r in syn_regexes for m in r.finditer(string) ]
+    # len...
     for m in matches:
-        m = matches[0] 
         string = string.replace(m, highlight(m))
     if matches:
         print('$$$ ', string)
