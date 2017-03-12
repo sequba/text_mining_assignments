@@ -102,12 +102,12 @@ def extract_synonyms(head, body):
     interesting_substrings = { m.group('word') for r in syn_regexes for m in r.finditer(head) }
     interesting_substrings_in_body = { m.group('word') for m in body_syn_regex.finditer(' '+body) }
     interesting = interesting_substrings | interesting_substrings_in_body
-
-    synonyms = set()
-    for s in interesting:
-        quoted = quoted_regex.finditer(s)
-        synonyms = { inner for q in quoted for inner in [q.group().strip().strip("'").strip()] if len(inner) < 64 }
+    matches = { m for s in interesting for m in quoted_regex.finditer(s) }
+    synonyms = { inner for m in matches for inner in [m.group().strip().strip("'").strip()] if len(inner) > 0 and len(inner) < 64 }
     
+    for separator in [',', '(', ')']:
+        synonyms = { term.strip() for string in synonyms for term in string.split(separator) }
+
     '''
     if interesting_substrings_in_body:
         string = head
