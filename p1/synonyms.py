@@ -26,129 +26,125 @@ def replace_regex(string, regex_obj, replacement):
         m = regex_obj.search(string)
     return string
 
-class line_preparation:
-    unicode_dashes = [ 173, 1418, 1470, 8208, 8209, 8210, 8211, 8212, 8213, 8722, 65123, 65293 ]
-    translate_dashes = dict.fromkeys(unicode_dashes, '-')
-    
-    unwanted_patterns = [   '! --((?!--).)*-- ',
-                            '! --((?!--).)*$',
-                            '= = =((?!= = =).)*= = = ',
-                            '= = =((?!= = =).)*$',
-                            '= =((?!= =).)*= = ',
-                            '= =((?!= =).)*$'
-                        ]
-    unwanted_regexes = [ re.compile(p) for p in unwanted_patterns ]
+class Line:
+    translate_dashes = unwanted_regexes = None
+    def __init__(self):
+        unicode_dashes = [ 173, 1418, 1470, 8208, 8209, 8210, 8211, 8212, 8213, 8722, 65123, 65293 ]
+        Line.translate_dashes = dict.fromkeys(unicode_dashes, '-')
+        
+        unwanted_patterns = [   '! --((?!--).)*-- ',
+                                '! --((?!--).)*$',
+                                '= = =((?!= = =).)*= = = ',
+                                '= = =((?!= = =).)*$',
+                                '= =((?!= =).)*= = ',
+                                '= =((?!= =).)*$'
+                            ]
+        Line.unwanted_regexes = [ re.compile(p) for p in unwanted_patterns ]
 
-    def __call__(self, line):
-        # handle unicode dashes
-        line = line.translate(self.translate_dashes).replace('& amp ; ndash ;', '-')
-        # remove unwanted patterns
-        for r in self.unwanted_regexes:
+    def prepare(line):
+        line = line.translate(Line.translate_dashes).replace('& amp ; ndash ;', '-') # handle unicode dashes
+        for r in Line.unwanted_regexes: # remove unwanted patterns
             line = replace_regex(line, r, '')
-        # remove align specs
-        line = line.replace('right ', '')
+        line = line.replace('right ', '') # remove align specs
         return line.strip()
-prepare = line_preparation()
+Line()
 
-def suitable(title, definition):
-    conditions = [
-        # strony ujednoznaczniajace
-        title.endswith('( ujednoznacznienie )'),
-        # empty lines
-        definition == '',
-        # infoboxes
-        definition.count('|') > 3,
-        # podobne dziwy
-        definition.count('br /') > 3,
-        # redirection pages
-        definition.startswith('/ > # redirect')
-    ]
+class Article:
+    def suitable(title, body):
+        conditions = [
+            title.endswith('( ujednoznacznienie )'),  # strony ujednoznaczniajace
+            body == '', # empty lines
+            body.count('|') > 3, # infoboxes
+            body.count('br /') > 3, # podobne dziwy
+            body.startswith('/ > # redirect') # redirection pages
+        ]
 
-    if any(conditions):
-        return False
-    else:
-        return True
+        return not any(conditions)
 
-# first occurence of a def_word outside paranthesis (nested * not working, so its an approximation)
-def_pattern = '^'+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+'(?P<word>{0})'
-def_words = [ ' - ', ' jest ', ' to ' ]
-def_regexes = [re.compile(def_pattern.format(w)) for w in def_words]
+class Definition:
+    def_regexes = None
+    def __init__(self):
+        # first occurence of a def_word outside paranthesis (nested * not working, so its an approximation)
+        def_pattern = '^'+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+'(?P<word>{0})'
+        def_words = [ ' - ', ' jest ', ' to ' ]
+        Definition.def_regexes = [re.compile(def_pattern.format(w)) for w in def_words]
 
-def split_definition(string):
-    string = ' ' + string
-    matches = [ m.span('word') for pattern in def_regexes for m in [pattern.search(string)] if m ]
-    if matches:
-        (start, end) = min(matches)
-        #print(string[:start] + highlight(string[start:end]) + string[end:end+50])
-        return (string[:start].strip(), string[end:].strip())
-    else:
-        return ('', string)
+    def split(string):
+        string = ' ' + string
+        matches = [ m.span('word') for pattern in Definition.def_regexes for m in [pattern.search(string)] if m ]
+        if matches:
+            (start, end) = min(matches)
+            #print(string[:start] + highlight(string[start:end]) + string[end:end+50])
+            return (string[:start].strip(), string[end:].strip())
+        else:
+            return ('', string)
+Definition()
 
-# an intro_word followed by a series of ign_words indicate the beginning of interesting fragment from which the synonyms are to be extracted
-schema = "(?P<word>"+"'''*[^']*'''*" + "("+" *, *"+"'''*[^']*'''*"+")*"+")"
-syn_pattern = "{0}"+" *"+"("+"({1}) *"+")*"+schema
-body_syn_pattern = "^ *"+"(({0}) *"+"("+"({1}) *"+")*"+")?"+schema
-common_words = [ 'też', 'inaczej', 'właściwie', 'właść .', 'właśc .', 'oryginalnie', 'w oryginale', 'dawniej', 'dokładnie', 'dokładniej', 'zwyczajowo', 'zwycz .', 'potocznie', 'pot .', 'potocz .', 'syn.', 'synonimicznie', 'także', 'również', 'krótko', 'krócej', 'w skrócie', 'prościej', 'zwyczajnie', 'rzadziej', 'czasem', 'czasami', 'precyzyjnie', 'precyzyjniej', 'zwany', 'zwana', 'zwane', 'zwani', 'nazywany', 'nazywana', 'nazywane', 'nazywani', 'znany', 'znana', 'znane', 'tzw .', 'często', 'częściej', 'określany', 'określana', 'określane', 'określani']
-intro_words = [ ' lub ', ' albo ', ' skrót ', ' synonim ', ' synonimy ', ' czyli ', '^', '\( '] + [ ' '+w+' ' for w in common_words ]
-ign_words = [ 'jako ', 'nazwą ', 'pod nazwą ', 'mianem ', 'terminem ', 'określeniem ', 'pod określeniem ', ': ', '- ', 'po prostu ' ] + [ w+' ' for w in common_words ]
-ign_alternative = '|'.join(ign_words)
-syn_regexes = [ re.compile(syn_pattern.format(w, ign_alternative)) for w in intro_words ]
-intro_alternative = '|'.join(intro_words)
-body_syn_regex = re.compile(body_syn_pattern.format(intro_alternative, ign_alternative))
+class Synonym:
+    syn_regexes = body_syn_regex = quoted_regex = None
+    def __init__(self):
+        # an intro_word followed by a series of ign_words indicate the beginning of interesting fragment from which the synonyms are to be extracted
+        schema = "(?P<word>"+"'''*[^']*'''*" + "("+" *, *"+"'''*[^']*'''*"+")*"+")"
+        syn_pattern = "{0}"+" *"+"("+"({1}) *"+")*"+schema
+        body_syn_pattern = "^ *"+"(({0}) *"+"("+"({1}) *"+")*"+")?"+schema
+        common_words = [ 'też', 'inaczej', 'właściwie', 'właść .', 'właśc .', 'oryginalnie', 'w oryginale', 'dawniej', 'dokładnie', 'dokładniej', 'zwyczajowo', 'zwycz .', 'potocznie', 'pot .', 'potocz .', 'syn.', 'synonimicznie', 'także', 'również', 'krótko', 'krócej', 'w skrócie', 'prościej', 'zwyczajnie', 'rzadziej', 'czasem', 'czasami', 'precyzyjnie', 'precyzyjniej', 'zwany', 'zwana', 'zwane', 'zwani', 'nazywany', 'nazywana', 'nazywane', 'nazywani', 'znany', 'znana', 'znane', 'tzw .', 'często', 'częściej', 'określany', 'określana', 'określane', 'określani']
+        intro_words = [ ' lub ', ' albo ', ' skrót ', ' synonim ', ' synonimy ', ' czyli ', '^', '\( '] + [ ' '+w+' ' for w in common_words ]
+        ign_words = [ 'jako ', 'nazwą ', 'pod nazwą ', 'mianem ', 'terminem ', 'określeniem ', 'pod określeniem ', ': ', '- ', 'po prostu ' ] + [ w+' ' for w in common_words ]
+        ign_alternative = '|'.join(ign_words)
+        Synonym.syn_regexes = [ re.compile(syn_pattern.format(w, ign_alternative)) for w in intro_words ]
+        intro_alternative = '|'.join(intro_words)
+        Synonym.body_syn_regex = re.compile(body_syn_pattern.format(intro_alternative, ign_alternative))
+        Synonym.quoted_regex = re.compile("'''*[^']*'''*")
 
-quoted_regex = re.compile("'''*[^']*'''*")
+    def extract_all(term, description):
+        description = ' '+description
+        interesting_substrings = { m.group('word') for r in Synonym.syn_regexes for m in r.finditer(term) }
+        interesting_substrings_in_body = { m.group('word') for m in Synonym.body_syn_regex.finditer(description) }
+        interesting = interesting_substrings | interesting_substrings_in_body
+        matches = { m for s in interesting for m in Synonym.quoted_regex.finditer(s) }
+        synonyms = { inner for m in matches for inner in [m.group().strip().strip("'").strip()] if len(inner) > 0 and len(inner) < 64 }
+        
+        for separator in [',', '(', ')']:
+            synonyms = { term.strip() for string in synonyms for term in string.split(separator) }
 
-def extract_synonyms(head, body):
-    interesting_substrings = { m.group('word') for r in syn_regexes for m in r.finditer(head) }
-    interesting_substrings_in_body = { m.group('word') for m in body_syn_regex.finditer(' '+body) }
-    interesting = interesting_substrings | interesting_substrings_in_body
-    matches = { m for s in interesting for m in quoted_regex.finditer(s) }
-    synonyms = { inner for m in matches for inner in [m.group().strip().strip("'").strip()] if len(inner) > 0 and len(inner) < 64 }
+        return synonyms
+Synonym()
+
+if __name__ == "__main__":
+    matched = unmatched = rejected = 0
     
-    for separator in [',', '(', ')']:
-        synonyms = { term.strip() for string in synonyms for term in string.split(separator) }
+    for line in stdin:
+        line = Line.prepare(line)
 
-    '''
-    if interesting_substrings_in_body:
-        string = head
-        for m in interesting_substrings:
-            string = string.replace(m, highlight(m))
-        print('###', string)
-        string = body
-        for m in interesting_substrings_in_body:
-            string = string.replace(m, highlight(m))
-        print('$$$ ', string)
-    '''
-    return synonyms
-
-matched = 0
-unmatched = 0
-rejected = 0
-for line in stdin:
-    line = prepare(line)
-
-    if not line: # empty line
-        continue
-    elif line[0:3] == '###': # title line
-        title = line[4:]
-        continue
-    else: # definition line
-        definition = line
-        if not suitable(title, definition) or title.endswith('( ujednoznacznienie )'): # garbage
+        # classify the type of a line
+        if not line: # empty line
+            continue
+        elif line[0:3] == '###': # title
+            title = line[4:]
+            continue
+        else: # article body
+            body = line
+        
+        # ignore garbage
+        if not Article.suitable(title, body):
             rejected += 1
             continue
-   
-    (head, body) = split_definition(line)
-    if head:
-        matched += 1
-    else:
-        unmatched += 1
-  
-    synonyms = extract_synonyms(head, body)
-    synonyms.discard(title)
-    if synonyms:
-        print('{0} ## {1}'.format(title, ' # '.join(synonyms)))
+        
+        # definition structure
+        (term, description) = Definition.split(body)
+        if term:
+            matched += 1
+        else:
+            unmatched += 1
+      
+        # get the synonyms
+        synonyms = Synonym.extract_all(term, description)
+        synonyms.discard(title)
+        if synonyms:
+            print('{0} # {1}'.format(title, ' # '.join(sorted(synonyms))))
 
 
-# print('{0} vs {1} + {2}'.format(matched, unmatched, rejected))
+    print('matched:', matched)
+    print('unmatched:', unmatched)
+    print('rejected:', rejected)
 
