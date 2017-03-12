@@ -18,7 +18,6 @@ def highlight(string):
     p  = '\033[35m' # purple
     return bold+g+' '+string+' '+w
 
-
 def replace_regex(string, regex_obj, replacement):
     m = regex_obj.search(string)
     while m:
@@ -37,8 +36,7 @@ class Line:
                                 '= = =((?!= = =).)*= = = ',
                                 '= = =((?!= = =).)*$',
                                 '= =((?!= =).)*= = ',
-                                '= =((?!= =).)*$'
-                            ]
+                                '= =((?!= =).)*$' ]
         Line.unwanted_regexes = [ re.compile(p) for p in unwanted_patterns ]
 
     def prepare(line):
@@ -56,22 +54,22 @@ class Article:
             body == '', # empty lines
             body.count('|') > 3, # infoboxes
             body.count('br /') > 3, # podobne dziwy
-            body.startswith('/ > # redirect') # redirection pages
-        ]
-
+            body.startswith('/ > # redirect') ] # redirection pages
         return not any(conditions)
 
 class Definition:
-    def_regexes = None
+    regexes = None
     def __init__(self):
         # first occurence of a def_word outside paranthesis (nested * not working, so its an approximation)
-        def_pattern = '^'+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+'(?P<word>{0})'
-        def_words = [ ' - ', ' jest ', ' to ' ]
-        Definition.def_regexes = [re.compile(def_pattern.format(w)) for w in def_words]
+        no_paran = '((?!{0})[^(])*'
+        paran = '(\([^)]*\))*'
+        pattern = '^' + no_paran + paran + no_paran + paran + no_paran + '(?P<word>{0})'
+        keywords = [ ' - ', ' jest ', ' to ' ]
+        Definition.regexes = [re.compile(pattern.format(w)) for w in keywords]
 
     def split(string):
         string = ' ' + string
-        matches = [ m.span('word') for pattern in Definition.def_regexes for m in [pattern.search(string)] if m ]
+        matches = [ m.span('word') for pattern in Definition.regexes for m in [pattern.search(string)] if m ]
         if matches:
             (start, end) = min(matches)
             #print(string[:start] + highlight(string[start:end]) + string[end:end+50])
