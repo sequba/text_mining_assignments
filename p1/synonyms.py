@@ -18,51 +18,56 @@ def highlight(string):
     p  = '\033[35m' # purple
     return bold+g+' '+string+' '+w
 
-comment_regex = re.compile('! --((?!--).)*-- ')
-open_comment_regex = re.compile('! --((?!--).)*$')
-category_regex = re.compile('= = =((?!= = =).)*= = = ')
-open_category_regex = re.compile('= = =((?!= = =).)*$')
-subcategory_regex = re.compile('= =((?!= =).)*= = ')
-open_subcategory_regex = re.compile('= =((?!= =).)*$')
 
-def remove_occurences(regex_object, string):
-    m = regex_object.search(string)
+def replace_regex(string, regex_obj, replacement):
+    m = regex_obj.search(string)
     while m:
-        string = regex_object.sub('', string)
-        m = regex_object.search(string)
+        string = regex_obj.sub(replacement, string)
+        m = regex_obj.search(string)
     return string
 
-unicode_dashes = {173, 1418, 1470, 8208, 8209, 8210, 8211, 8212, 8213, 8722, 65123, 65293}
-translation_table = dict.fromkeys(unicode_dashes, '-')
+class line_preparation:
+    unicode_dashes = [ 173, 1418, 1470, 8208, 8209, 8210, 8211, 8212, 8213, 8722, 65123, 65293 ]
+    translate_dashes = dict.fromkeys(unicode_dashes, '-')
+    
+    unwanted_patterns = [   '! --((?!--).)*-- ',
+                            '! --((?!--).)*$',
+                            '= = =((?!= = =).)*= = = ',
+                            '= = =((?!= = =).)*$',
+                            '= =((?!= =).)*= = ',
+                            '= =((?!= =).)*$'
+                        ]
+    unwanted_regexes = [ re.compile(p) for p in unwanted_patterns ]
 
-def prepare(line):
-    line = line.strip()
-    line = line.translate(translation_table).replace('& amp ; ndash ;', '-')
-    line = remove_occurences(comment_regex, line)
-    line = remove_occurences(open_comment_regex, line)
-    line = remove_occurences(category_regex, line)
-    line = remove_occurences(open_category_regex, line)
-    line = remove_occurences(subcategory_regex, line)
-    line = remove_occurences(open_subcategory_regex, line)
-    line = line.replace('right ', '')
+    def __call__(self, line):
+        # handle unicode dashes
+        line = line.translate(self.translate_dashes).replace('& amp ; ndash ;', '-')
+        # remove unwanted patterns
+        for r in self.unwanted_regexes:
+            line = replace_regex(line, r, '')
+        # remove align specs
+        line = line.replace('right ', '')
+        return line.strip()
+prepare = line_preparation()
 
-    return line
-
-def suitable(string):
+def suitable(title, definition):
     conditions = [
+        # strony ujednoznaczniajace
+        title.endswith('( ujednoznacznienie )'),
         # empty lines
-        string == '',
+        definition == '',
         # infoboxes
-        string.count('|') > 3,
+        definition.count('|') > 3,
         # podobne dziwy
-        string.count('br /') > 3,
+        definition.count('br /') > 3,
         # redirection pages
-        string.startswith('/ > # redirect')
+        definition.startswith('/ > # redirect')
     ]
 
     if any(conditions):
         return False
-    return True
+    else:
+        return True
 
 # first occurence of a def_word outside paranthesis (nested * not working, so its an approximation)
 def_pattern = '^'+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+'(\([^)]*\))*'+'((?!{0})[^(])*'+'(?P<word>{0})'
@@ -122,12 +127,16 @@ rejected = 0
 for line in stdin:
     line = prepare(line)
 
-    if line[0:3] == '###': # title line
+    if not line: # empty line
+        continue
+    elif line[0:3] == '###': # title line
         title = line[4:]
         continue
-    elif not suitable(line) or title.endswith('( ujednoznacznienie )'): # garbage
-        rejected += 1
-        continue
+    else: # definition line
+        definition = line
+        if not suitable(title, definition) or title.endswith('( ujednoznacznienie )'): # garbage
+            rejected += 1
+            continue
    
     (head, body) = split_definition(line)
     if head:
