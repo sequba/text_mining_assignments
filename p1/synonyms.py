@@ -56,6 +56,7 @@ class Article:
             body.count('br /') > 3, # podobne dziwy
             body.startswith('/ > # redirect') ] # redirection pages
         return not any(conditions)
+Article()
 
 class Definition:
     regexes = None
@@ -64,10 +65,11 @@ class Definition:
         no_paran = '((?!{0})[^(])*'
         paran = '(\([^)]*\))*'
         pattern = '^' + no_paran + paran + no_paran + paran + no_paran + '(?P<word>{0})'
-        keywords = [ ' - ', ' jest ', ' to ' ]
+        keywords = [ ' - ', ' jest to ', ' jest ', ' to ' ]
         Definition.regexes = [re.compile(pattern.format(w)) for w in keywords]
 
     def split(string):
+        '''
         string = ' ' + string
         matches = [ m.span('word') for pattern in Definition.regexes for m in [pattern.search(string)] if m ]
         if matches:
@@ -75,40 +77,52 @@ class Definition:
             #print(string[:start] + highlight(string[start:end]) + string[end:end+50])
             return (string[:start].strip(), string[end:].strip())
         else:
-            return ('', string)
+        '''
+        return (string, '')
 Definition()
 
 class Synonym:
-    syn_regexes = body_syn_regex = quoted_regex = None
+    regexes = desc_regex = quoted_regex = None
     def __init__(self):
-        # an intro_word followed by a series of ign_words indicate the beginning of interesting fragment from which the synonyms are to be extracted
-        schema = "(?P<word>"+"'''*[^']*'''*" + "("+" *, *"+"'''*[^']*'''*"+")*"+")"
-        syn_pattern = "{0}"+" *"+"("+"({1}) *"+")*"+schema
-        body_syn_pattern = "^ *"+"(({0}) *"+"("+"({1}) *"+")*"+")?"+schema
+        # keywords
         common_words = [ 'też', 'inaczej', 'właściwie', 'właść .', 'właśc .', 'oryginalnie', 'w oryginale', 'dawniej', 'dokładnie', 'dokładniej', 'zwyczajowo', 'zwycz .', 'potocznie', 'pot .', 'potocz .', 'syn.', 'synonimicznie', 'także', 'również', 'krótko', 'krócej', 'w skrócie', 'prościej', 'zwyczajnie', 'rzadziej', 'czasem', 'czasami', 'precyzyjnie', 'precyzyjniej', 'zwany', 'zwana', 'zwane', 'zwani', 'nazywany', 'nazywana', 'nazywane', 'nazywani', 'znany', 'znana', 'znane', 'tzw .', 'często', 'częściej', 'określany', 'określana', 'określane', 'określani']
         intro_words = [ ' lub ', ' albo ', ' skrót ', ' synonim ', ' synonimy ', ' czyli ', '^', '\( '] + [ ' '+w+' ' for w in common_words ]
         ign_words = [ 'jako ', 'nazwą ', 'pod nazwą ', 'mianem ', 'terminem ', 'określeniem ', 'pod określeniem ', ': ', '- ', 'po prostu ' ] + [ w+' ' for w in common_words ]
+        
+        quoted = "'''*[^']*'''*"
+        quoted_series = "(?P<word>"+ quoted + "("+" *, *"+ quoted +")*"+")"
+        open_sequence = "({0}) *(({1}) *)*"
+        
+        # an intro_word followed by a series of ign_words indicate the beginning of interesting fragment from which the synonyms are to be extracted
+        pattern = open_sequence + quoted_series
+        # in the description I try to find it only at the beginning, and open_sequence is optional
+        desc_pattern = "^"+"("+ open_sequence +")?"+ quoted_series
+        
+        # alternative expressions
         ign_alternative = '|'.join(ign_words)
-        Synonym.syn_regexes = [ re.compile(syn_pattern.format(w, ign_alternative)) for w in intro_words ]
-        intro_alternative = '|'.join(intro_words)
-        Synonym.body_syn_regex = re.compile(body_syn_pattern.format(intro_alternative, ign_alternative))
-        Synonym.quoted_regex = re.compile("'''*[^']*'''*")
+        intro_alternative = '|'.join( w.lstrip() for w in intro_words)
+        
+        # compiled
+        Synonym.quoted_regex = re.compile(quoted)
+        Synonym.regexes = [ re.compile(pattern.format(w, ign_alternative)) for w in intro_words ]
+        Synonym.desc_regex = re.compile(desc_pattern.format(intro_alternative, ign_alternative))
 
     def extract_all(term, description):
-        description = ' '+description
-        interesting_substrings = { m.group('word') for r in Synonym.syn_regexes for m in r.finditer(term) }
-        interesting_substrings_in_body = { m.group('word') for m in Synonym.body_syn_regex.finditer(description) }
-        interesting = interesting_substrings | interesting_substrings_in_body
+        # re.findall? re.split?
+        interesting_term = { m.group('word') for r in Synonym.regexes for m in r.finditer(term) }
+        interesting_desc = { m.group('word') for m in [Synonym.desc_regex.search(description)] if m }
+        interesting = interesting_term | interesting_desc
         matches = { m for s in interesting for m in Synonym.quoted_regex.finditer(s) }
         synonyms = { inner for m in matches for inner in [m.group().strip().strip("'").strip()] if len(inner) > 0 and len(inner) < 64 }
         
         for separator in [',', '(', ')']:
             synonyms = { term.strip() for string in synonyms for term in string.split(separator) }
-
+        
         return synonyms
 Synonym()
 
 if __name__ == "__main__":
+    pretty_print = False
     matched = unmatched = rejected = 0
     
     for line in stdin:
@@ -138,11 +152,18 @@ if __name__ == "__main__":
         # get the synonyms
         synonyms = Synonym.extract_all(term, description)
         synonyms.discard(title)
+        
         if synonyms:
-            print('{0} # {1}'.format(title, ' # '.join(sorted(synonyms))))
+            if pretty_print:
+                colored = '$$$ ' + term + ' ---- ' + description
+                for s in synonyms:
+                    colored = colored.replace(s, highlight(s))
+                print(colored)
+            else:
+                print('{0} # {1}'.format(title, ' # '.join(sorted(synonyms))))
 
-
+    '''
     print('matched:', matched)
     print('unmatched:', unmatched)
     print('rejected:', rejected)
-
+    '''
