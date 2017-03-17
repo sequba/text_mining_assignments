@@ -1,7 +1,7 @@
 '''
-gunzip -c ../../data/poczatki_wikipediowe.txt.gz | head -n 10000 | python3 my_tokenize.py | python3 synonyms.py | sort -R | less -r
+gunzip -c ../../data/poczatki_wikipediowe.txt.gz | head -n 10000 | python3 my_tokenize.py | python3 synonyms.py | tee /tmp/syn | sort -R | less -r
 
-gunzip -c ../../data/poczatki_wikipediowe.txt.gz | pv -l -s 3024407 | python3 my_tokenize.py | python3 synonyms.py
+gunzip -c ../../data/poczatki_wikipediowe.txt.gz | pv -l -s 3024407 | python3 my_tokenize.py | python3 synonyms.py > /tmp/synonyms
 '''
 
 from sys import stdin
@@ -31,19 +31,22 @@ class Line:
         unicode_dashes = [ 173, 1418, 1470, 8208, 8209, 8210, 8211, 8212, 8213, 8722, 65123, 65293 ]
         Line.translate_dashes = dict.fromkeys(unicode_dashes, '-')
         
-        unwanted_patterns = [   '! --((?!--).)*-- ',
+        unwanted_patterns = [   '^\d px ',
+                                '^right ',
+                                '! --((?!--).)*-- ',
                                 '! --((?!--).)*$',
                                 '= = =((?!= = =).)*= = = ',
                                 '= = =((?!= = =).)*$',
                                 '= =((?!= =).)*= = ',
-                                '= =((?!= =).)*$' ]
+                                '= =((?!= =).)*$',
+                                '& amp ;[^;];'
+                                ]
         Line.unwanted_regexes = [ re.compile(p) for p in unwanted_patterns ]
 
     def prepare(line):
         line = line.translate(Line.translate_dashes).replace('& amp ; ndash ;', '-') # handle unicode dashes
         for r in Line.unwanted_regexes: # remove unwanted patterns
             line = replace_regex(line, r, '')
-        line = line.replace('right ', '') # remove align specs
         return line.strip()
 Line()
 
@@ -59,26 +62,43 @@ class Article:
 Article()
 
 class Definition:
-    regexes = None
+    keywords = None
     def __init__(self):
-        # first occurence of a def_word outside paranthesis (nested * not working, so its an approximation)
-        no_paran = '((?!{0})[^(])*'
-        paran = '(\([^)]*\))*'
-        pattern = '^' + no_paran + paran + no_paran + paran + no_paran + '(?P<word>{0})'
-        keywords = [ ' - ', ' jest to ', ' jest ', ' to ' ]
-        Definition.regexes = [re.compile(pattern.format(w)) for w in keywords]
+        Definition.keywords = [ ' - ', ' jest to ', ' jest ', ' to ' ]
 
     def split(string):
-        '''
-        string = ' ' + string
-        matches = [ m.span('word') for pattern in Definition.regexes for m in [pattern.search(string)] if m ]
-        if matches:
-            (start, end) = min(matches)
-            #print(string[:start] + highlight(string[start:end]) + string[end:end+50])
-            return (string[:start].strip(), string[end:].strip())
+        pair = Definition.first_legitimate_keyword(string)
+        if pair:
+            (start, end) = pair
+            return (string[:start], string[end:])
         else:
-        '''
-        return (string, '')
+            return ('', string)
+
+    def first_legitimate_keyword(string):
+        # Find the first occurence of one of the keywords that is outside of the paranthesis and quotes
+        paran = 0
+        double_q = triple_q = False
+        q_row = 0
+        for (i,c) in enumerate(string):
+            if c == "'":
+                q_row += 1
+            else:
+                if q_row == 2:
+                    double_q = not double_q
+                elif q_row == 3:
+                    triple_q = not triple_q
+                q_row = 0
+
+            if c == '(':
+                paran += 1
+            elif c == ')':
+                paran = max(paran-1, 0)
+                
+            if not any([paran, double_q, triple_q]): # look for keywords
+                test = [ (i, i+len(w)) for w in Definition.keywords if string[i:].startswith(w) ]
+                if test:
+                    return test[0]
+        return None
 Definition()
 
 class Synonym:
@@ -161,6 +181,7 @@ if __name__ == "__main__":
                 print(colored)
             else:
                 print('{0} # {1}'.format(title, ' # '.join(sorted(synonyms))))
+                pass
 
     '''
     print('matched:', matched)
