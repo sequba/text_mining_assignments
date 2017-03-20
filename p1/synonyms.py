@@ -44,6 +44,7 @@ class Line:
         Line.unwanted_regexes = [ re.compile(p) for p in unwanted_patterns ]
 
     def prepare(line):
+        line = line.translate(Line.translate_dashes).replace('& quot ;', '"')
         line = line.translate(Line.translate_dashes).replace('& amp ; ndash ;', '-') # handle unicode dashes
         for r in Line.unwanted_regexes: # remove unwanted patterns
             line = replace_regex(line, r, '')
@@ -51,8 +52,13 @@ class Line:
 Line()
 
 class Article:
+    unwanted_titles = None
+    def __init__(self):
+        special = ['szablon', 'kategoria', 'wikipedia', 'plik', 'portal', 'mediawiki', 'wikiprojekt', 'pomoc']
+        Article.unwanted_titles = [ w+' :' for w in special ]
     def suitable(title, body):
         conditions = [
+            any( w in title for w in Article.unwanted_titles ),
             title.endswith('( ujednoznacznienie )'),  # strony ujednoznaczniajace
             body == '', # empty lines
             body.count('|') > 3, # infoboxes
@@ -128,15 +134,16 @@ class Synonym:
         Synonym.desc_regex = re.compile(desc_pattern.format(intro_alternative, ign_alternative))
 
     def extract_all(term, description):
-        # re.findall? re.split?
         interesting_term = { m.group('word') for r in Synonym.regexes for m in r.finditer(term) }
         interesting_desc = { m.group('word') for m in [Synonym.desc_regex.search(description)] if m }
         interesting = interesting_term | interesting_desc
         matches = { m for s in interesting for m in Synonym.quoted_regex.finditer(s) }
         synonyms = { inner for m in matches for inner in [m.group().strip().strip("'").strip()] if len(inner) > 0 and len(inner) < 64 }
-        
-        for separator in [',', '(', ')']:
-            synonyms = { term.strip() for string in synonyms for term in string.split(separator) }
+       
+        # split every quoted fragment
+        # not sure if it's good step
+        for separator in [',']: #, '(', ')']:
+            synonyms = { term.strip() for string in synonyms for term in string.split(separator) if len(term.strip()) > 0 }
         
         return synonyms
 Synonym()
@@ -153,6 +160,11 @@ if __name__ == "__main__":
             continue
         elif line[0:3] == '###': # title
             title = line[4:]
+            # not sure if this is good idea
+            # take the part of the title with no paranthesis
+            first_paran = title.find('(')
+            if first_paran > -1:
+                title = title[:first_paran-1]
             continue
         else: # article body
             body = line
@@ -175,16 +187,23 @@ if __name__ == "__main__":
         
         if synonyms:
             if pretty_print:
-                colored = '$$$ ' + term + ' ---- ' + description
-                for s in synonyms:
+                colored = '### ' + title + ' $$$ ' + term + ' ---- ' + description
+
+                for s in synonyms | { title }:
                     colored = colored.replace(s, highlight(s))
                 print(colored)
             else:
                 print('{0} # {1}'.format(title, ' # '.join(sorted(synonyms))))
                 pass
 
-    '''
-    print('matched:', matched)
-    print('unmatched:', unmatched)
-    print('rejected:', rejected)
-    '''
+    if pretty_print:
+        print('matched:', matched)
+        print('unmatched:', unmatched)
+        print('rejected:', rejected)
+'''
+2017-03-20:
+found:       28643
+matched:    583424
+unmatched:   61564
+rejected:   120361
+'''
