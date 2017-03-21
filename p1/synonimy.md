@@ -29,7 +29,7 @@ Głowa definicji w najprostszym przypadku zawiera jedynie definiowane pojącie, 
 
 Przykład definicji z Wikipedii z wyróżnionymi częściami:
 ```
-\< '''Aksjomat''' ('''postulat''', '''pewnik'''; gr. αξιωμα ''aksíoma'' – godność, pewność, oczywistość) \> \< - \> \< jedno z podstawowych pojęć logiki matematycznej. Od czasów Euklidesa uznawano, że aksjomaty [...] \>
+< '''Aksjomat''' ('''postulat''', '''pewnik'''; gr. αξιωμα ''aksíoma'' – godność, pewność, oczywistość) > < - > < jedno z podstawowych pojęć logiki matematycznej. Od czasów Euklidesa uznawano, że aksjomaty [...] >
 ```
 
 Można zauważyć, że zdecydowana większość synonimów występuje w głowie definicji. Wyszukiwarka ogranicza się tylko do tej części, co pozwala znacząco ograniczyć liczbę trafień "false-positive" przy stosowaniu agresywnych (prostych, powszechnych) wzorców. W artykułach, w których nie udało się wyróżnić struktury definicji, wzorce synonimów są wyszukiwane tylko na początku.
