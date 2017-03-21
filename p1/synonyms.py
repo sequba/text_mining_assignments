@@ -1,7 +1,7 @@
 '''
 gunzip -c ../../data/poczatki_wikipediowe.txt.gz | head -n 10000 | python3 my_tokenize.py | python3 synonyms.py | tee /tmp/syn | sort -R | less -r
 
-gunzip -c ../../data/poczatki_wikipediowe.txt.gz | pv -l -s 3024407 | python3 my_tokenize.py | python3 synonyms.py > /tmp/synonyms
+gunzip -c ../../data/poczatki_wikipediowe.txt.gz | pv -l -s 3024407 | python3 my_tokenize.py | python3 synonyms.py > ../../data/my_synonyms
 '''
 
 from sys import stdin
