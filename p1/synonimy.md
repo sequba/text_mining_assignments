@@ -3,7 +3,7 @@
 ## Input
 Wyszukiwarka oczekuje tekstu stokenizowanego. Przykładowe wywołanie:
 ```
-$ cat poczatki_wikipediowe.txt | python3 my_tokenize.py | python3 synonyms.py > /synonimy.txt
+$ cat poczatki_wikipediowe.txt | python3 my_tokenize.py | python3 synonyms.py > synonimy.txt
 ```
 
 ## Przygotowanie
@@ -28,18 +28,18 @@ Ten etap opiera się na założeniu, że początkowy fragment artykułu zawiera 
 Głowa definicji w najprostszym przypadku zawiera jedynie definiowane pojącie, frazą definiującą może być słowo 'to', a ciało to mniej lub bardziej ścisły opis charakteryzujący definiowane pojęcie.
 
 Przykład definicji z Wikipedii z wyróżnionymi częściami:
-```'< '''Aksjomat''' ('''postulat''', '''pewnik'''; gr. αξιωμα ''aksíoma'' – godność, pewność, oczywistość) > < - > < jedno z podstawowych pojęć logiki matematycznej. Od czasów Euklidesa uznawano, że aksjomaty [...] >'
+```\< '''Aksjomat''' ('''postulat''', '''pewnik'''; gr. αξιωμα ''aksíoma'' – godność, pewność, oczywistość) \> \< - \> \< jedno z podstawowych pojęć logiki matematycznej. Od czasów Euklidesa uznawano, że aksjomaty [...] \>
 ```
 
-Można zauważyć, że zdecydowana większość synonimów występuje w głowie definicji. Wyszukiwarka ogranicza się tylko do tej części, co pozwala jest znacząco ograniczyć liczbę trafień "false-positive" przy stosowaniu agresywnych (prostych, powszechnych) wzorców. W artykułach, w których nie udało się wyróżnić struktury definicji, wzorce synonimów są wyszukiwane tylko na początku.
+Można zauważyć, że zdecydowana większość synonimów występuje w głowie definicji. Wyszukiwarka ogranicza się tylko do tej części, co pozwala znacząco ograniczyć liczbę trafień "false-positive" przy stosowaniu agresywnych (prostych, powszechnych) wzorców. W artykułach, w których nie udało się wyróżnić struktury definicji, wzorce synonimów są wyszukiwane tylko na początku.
 
-Wyszukiwarka klasyfikuję frazę jako frazę definiującą, jeśli znajdzie poza nawiasami i poza cudzysłowami jeden z ciągów znaków:`[ ' - ', ' jest to ', ' jest ', ' to ' ]`
+Wyszukiwarka klasyfikuje frazę jako frazę definiującą, jeśli znajdzie poza nawiasami i poza cudzysłowami jeden z ciągów znaków:`[ ' - ', ' jest to ', ' jest ', ' to ' ]`
 
 ## Wzorce synonimów
 
 Synonimy są wskazywane na podstawie słów, które je poprzedzają. Stosowany wzorzec:
 ```
-<intro> <ign>* ''+<syn>''+ (, ''+<syn>''+)*
+<intro> <ign>* ''+ <syn> ''+ (, ''+ <syn> ''+)*
 ```
 Jako synonimy brane pod uwagę są jedynie frazy ujęte w podwójne lub potrójne apostrofy. Wyszukiwane są ciągi takich fraz (oddzielonych przecinkami), przed którymi występuje fraza `<intro>` i byćmoże kilka fraz `<ign>`.
 
