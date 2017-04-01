@@ -22,20 +22,21 @@ class Index:
         return sorted( self.documents[i] for i in hit )
 
 class Lematizer:
-    mapping = None
-    reversed_mapping = None
+    mapping = None # word -> lemats
+    reversed_mapping = None # lemat -> words
 
     def __init__(self, lemat_dict_file):
+        # build mapping 
         self.mapping = defaultdict(set)
         for line in open(lemat_dict_file):
             fields = line.strip().split(';')
             self.mapping[ fields[1] ].add(fields[0])
         
-        if build_reversed_mapping:
-            self.reversed_mapping = defaultdict(set)
-            for (w, lemats) in self.mapping.items():
-                for l in lemats:
-                    self.reversed_mapping[l].add(w)
+        # build reversed_mapping
+        self.reversed_mapping = defaultdict(set)
+        for (w, lemats) in self.mapping.items():
+            for l in lemats:
+                self.reversed_mapping[l].add(w)
 
     def __getitem__(self, word):
         lemats = self.mapping[word]
@@ -46,13 +47,10 @@ class Lematizer:
 
     def all_forms(self, word):
         word_lemats = self[word]
-        if build_reversed_mapping:
-            result = { word }
-            for l in word_lemats:
-                result |= self.reversed_mapping[l]
-            return result
-        else:
-            return { word } | { w for (w, lemats) in self.mapping.items() if lemats & word_lemats }
+        result = { word }
+        for l in word_lemats:
+            result |= self.reversed_mapping[l]
+        return result
 
 class LematIndex(Index):
     lemats = None
@@ -79,9 +77,6 @@ def prompt():
     print(coloured('?> ', 'r'), end='', flush=True)
 
 if __name__ == "__main__":
-
-    build_reversed_mapping = True
-
     docs = '../../data/wikicytaty_stokenizowane_nltk.txt'
     lemats = '../../data/polimorfologik-2.1.txt'
     index = LematIndex(docs, lemats)
