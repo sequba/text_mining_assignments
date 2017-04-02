@@ -31,12 +31,16 @@ class Lematizer:
         for line in open(lemat_dict_file):
             fields = line.strip().split(';')
             self.mapping[ fields[1] ].add(fields[0])
-        
+            self.mapping[ fields[0] ].add(fields[0])
+
         # build reversed_mapping
         self.reversed_mapping = defaultdict(set)
         for (w, lemats) in self.mapping.items():
             for l in lemats:
                 self.reversed_mapping[l].add(w)
+
+        # every lemat is its own lemat
+        assert( all( (lem in forms) for (lem,forms) in self.reversed_mapping.items() ) )
 
     def __getitem__(self, word):
         lemats = self.mapping[word]
@@ -44,6 +48,12 @@ class Lematizer:
             return lemats
         else:
             return { word }
+
+    def all_lemats(self):
+        return self.reversed_mapping.keys()
+
+    def items(self):
+        return self.mapping.items() 
 
     def all_forms(self, word):
         word_lemats = self[word]
